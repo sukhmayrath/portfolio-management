@@ -1,0 +1,15 @@
+{
+  "name": "portfolio-management",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && node --watch index.js",
+    "client": "cd client && npm run dev",
+    "seed": "cd server && node db/seed.js",
+    "build": "cd client && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
