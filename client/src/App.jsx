@@ -14,7 +14,6 @@ import Login from './pages/Login';
 import AuditLog from './pages/AuditLog';
 import Timeline from './pages/Timeline';
 import Roadmap from './pages/Roadmap';
-import CapacityPlanning from './pages/CapacityPlanning';
 import AlertRules from './pages/AlertRules';
 import BudgetTracking from './pages/BudgetTracking';
 import ExecutiveSummary from './pages/ExecutiveSummary';
@@ -48,7 +47,6 @@ function App() {
           <Route path="costs" element={<CostDashboard />} />
           <Route path="timeline" element={<Timeline />} />
           <Route path="roadmap" element={<Roadmap />} />
-          <Route path="capacity" element={<CapacityPlanning />} />
           <Route path="alerts" element={<AlertRules />} />
           <Route path="budget" element={<BudgetTracking />} />
           <Route path="executive-summary" element={<ExecutiveSummary />} />

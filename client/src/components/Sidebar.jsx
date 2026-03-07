@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router';
-import { LayoutDashboard, Lightbulb, FolderKanban, Users, GitBranch, BarChart3, DollarSign, Calendar, Map, Scaling, Bell, FileText, ClipboardList, LogOut, Shield, LayoutGrid, Inbox, Zap, Blocks } from 'lucide-react';
+import { LayoutDashboard, Lightbulb, FolderKanban, Users, GitBranch, BarChart3, DollarSign, Calendar, Map, Bell, FileText, ClipboardList, LogOut, Shield, LayoutGrid, Inbox, Zap, Blocks } from 'lucide-react';
 
 const navItems = [
   { label: 'Overview', items: [
@@ -14,7 +14,6 @@ const navItems = [
   { label: 'Planning', items: [
     { to: '/timeline', icon: Calendar, label: 'Timeline' },
     { to: '/roadmap', icon: Map, label: 'Roadmap' },
-    { to: '/capacity', icon: Scaling, label: 'Capacity' },
   ]},
   { label: 'Resources', items: [
     { to: '/resources', icon: Users, label: 'Resource Pool' },

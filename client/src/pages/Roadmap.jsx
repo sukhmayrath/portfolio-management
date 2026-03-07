@@ -1,30 +1,68 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useApi } from '../hooks/useApi';
 import { useNavigate } from 'react-router';
 import PageHeader from '../components/PageHeader';
 import RAGIndicator from '../components/RAGIndicator';
 import StatusBadge from '../components/StatusBadge';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 export default function Roadmap() {
   const [year, setYear] = useState(new Date().getFullYear());
+  const [selectedClient, setSelectedClient] = useState('');
   const { data, loading } = useApi(`/timeline/roadmap?year=${year}`);
   const navigate = useNavigate();
 
-  if (loading) return <div className="p-8 text-center text-slate-500">Loading...</div>;
   const quarters = data?.quarters || {};
+
+  // Extract unique client names from all quarters
+  const clientNames = useMemo(() => {
+    const names = new Set();
+    Object.values(quarters).forEach(projs => projs.forEach(p => { if (p.theme_name) names.add(p.theme_name); }));
+    return [...names].sort();
+  }, [quarters]);
+
+  // Filter projects per quarter by selected client
+  const filteredQuarters = useMemo(() => {
+    if (!selectedClient) return quarters;
+    const filtered = {};
+    for (const [qLabel, projs] of Object.entries(quarters)) {
+      filtered[qLabel] = projs.filter(p => p.theme_name === selectedClient);
+    }
+    return filtered;
+  }, [quarters, selectedClient]);
+
+  if (loading) return <div className="p-8 text-center text-slate-500">Loading...</div>;
 
   return (
     <div>
       <PageHeader title="Roadmap" subtitle={`Project roadmap for ${year}`}>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setYear(y => y - 1)} className="p-1.5 hover:bg-slate-100 rounded"><ChevronLeft size={18} /></button>
-          <span className="text-sm font-semibold text-slate-800 w-12 text-center">{year}</span>
-          <button onClick={() => setYear(y => y + 1)} className="p-1.5 hover:bg-slate-100 rounded"><ChevronRight size={18} /></button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <select
+              value={selectedClient}
+              onChange={e => setSelectedClient(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 text-sm border border-slate-300 rounded-lg bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+            >
+              <option value="">All Clients</option>
+              {clientNames.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            {selectedClient && (
+              <button onClick={() => setSelectedClient('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setYear(y => y - 1)} className="p-1.5 hover:bg-slate-100 rounded"><ChevronLeft size={18} /></button>
+            <span className="text-sm font-semibold text-slate-800 w-12 text-center">{year}</span>
+            <button onClick={() => setYear(y => y + 1)} className="p-1.5 hover:bg-slate-100 rounded"><ChevronRight size={18} /></button>
+          </div>
         </div>
       </PageHeader>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {Object.entries(quarters).map(([qLabel, projs]) => (
+        {Object.entries(filteredQuarters).map(([qLabel, projs]) => (
           <div key={qLabel} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
               <span className="text-sm font-semibold text-slate-800">{qLabel}</span>

@@ -11,7 +11,7 @@ import {
 import {
   Printer, TrendingUp, TrendingDown, DollarSign, Wallet, BarChart3,
   Percent, AlertTriangle, Clock, ShieldAlert, Briefcase, Activity,
-  CheckCircle2, PlayCircle, LayoutGrid, ArrowRight,
+  CheckCircle2, LayoutGrid, ArrowRight,
 } from 'lucide-react';
 
 /* ---------- colour constants ---------- */
@@ -118,6 +118,7 @@ export default function ExecutiveSummary() {
   const { data: health } = useApi('/dashboard/portfolio-health');
   const { data: exec } = useApi('/dashboard/executive-summary');
   const { data: trends } = useApi('/snapshots/trends?period=180');
+  const { data: themes } = useApi('/themes');
 
   /* derived data */
   const healthDistribution = useMemo(() => {
@@ -132,16 +133,13 @@ export default function ExecutiveSummary() {
       .map(([name, value]) => ({ name, value }));
   }, [exec]);
 
-  const statusDistribution = useMemo(() => {
-    if (!exec?.health_counts) return [];
-    // health_counts might have status info; build from available data
-    const map = {};
-    (exec.health_counts || []).forEach(h => {
-      const key = h.health_status || 'Unknown';
-      map[key] = (map[key] || 0) + (h.count || 0);
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [exec]);
+  const budgetByClient = useMemo(() => {
+    if (!themes) return [];
+    return [...themes]
+      .sort((a, b) => (b.total_budget || 0) - (a.total_budget || 0))
+      .slice(0, 8)
+      .map(t => ({ name: t.name, Budget: t.total_budget || 0, Cost: t.total_resource_cost || 0 }));
+  }, [themes]);
 
   const trendChartData = useMemo(() => {
     if (!trends || !Array.isArray(trends) || trends.length === 0) return [];
@@ -186,8 +184,6 @@ export default function ExecutiveSummary() {
   const riskCount = exec.critical_risks?.length || 0;
   const attentionTotal = redCount + overdueCount + riskCount;
 
-  const STATUS_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#94a3b8'];
-
   return (
     <div className="space-y-0">
       {/* ---- Header ---- */}
@@ -212,7 +208,7 @@ export default function ExecutiveSummary() {
           <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col items-center justify-center">
             <HealthScoreGauge score={health.overall_score} size={180} />
             <p className="text-sm font-semibold text-slate-600 mt-4 tracking-wide">Portfolio Health Score</p>
-            <p className="text-xs text-slate-400 mt-1">{exec.project_count} projects across {exec.theme_count} themes</p>
+            <p className="text-xs text-slate-400 mt-1">{exec.project_count} projects across {exec.theme_count} clients</p>
           </div>
 
           {/* KPI cards grid */}
@@ -331,34 +327,33 @@ export default function ExecutiveSummary() {
             )}
           </Section>
 
-          {/* Bar: Status distribution */}
-          <Section title="Status Distribution" icon={BarChart3}>
-            {statusDistribution.length > 0 ? (
+          {/* Bar: Budget by Client */}
+          <Section title="Budget by Client" icon={Wallet}>
+            {budgetByClient.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={statusDistribution} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <BarChart data={budgetByClient} layout="vertical" margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
                   <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 12, fill: '#64748b', fontWeight: 500 }}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    tickLine={false}
-                  />
-                  <YAxis
+                    type="number"
                     tick={{ fontSize: 11, fill: '#94a3b8' }}
                     axisLine={false}
                     tickLine={false}
-                    allowDecimals={false}
+                    tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={120}
                   />
                   <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={56}>
-                    {statusDistribution.map((_, idx) => (
-                      <Cell key={idx} fill={STATUS_COLORS[idx % STATUS_COLORS.length]} />
-                    ))}
-                  </Bar>
+                  <Bar dataKey="Budget" fill="#3b82f6" radius={[0, 4, 4, 0]} maxBarSize={24} name="Budget" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-sm text-slate-400 text-center py-8">No status data available</p>
+              <p className="text-sm text-slate-400 text-center py-8">No client data available</p>
             )}
           </Section>
         </div>
@@ -457,7 +452,7 @@ export default function ExecutiveSummary() {
                     <ShieldAlert size={16} className="text-orange-500 mt-0.5 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-slate-800 truncate">{r.title}</p>
-                      <p className="text-xs text-slate-400 truncate">{r.project_name}</p>
+                      <p className="text-xs text-slate-400 truncate">{r.theme_name} · {r.project_name}</p>
                     </div>
                     <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-bold">
                       Critical
@@ -540,28 +535,6 @@ export default function ExecutiveSummary() {
           </Section>
         )}
 
-        {/* ================================================================
-            SECTION 6: Summary Stats Footer
-            ================================================================ */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { label: 'Themes', value: exec.theme_count ?? summary.theme_count ?? 0, icon: LayoutGrid, color: 'blue' },
-            { label: 'Total Projects', value: exec.project_count ?? summary.project_count ?? 0, icon: Briefcase, color: 'violet' },
-            { label: 'Active Projects', value: exec.active_count ?? 0, icon: PlayCircle, color: 'emerald' },
-            { label: 'Resources', value: summary.resource_count ?? 0, icon: Activity, color: 'amber' },
-          ].map(stat => (
-            <div key={stat.label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center gap-4">
-              <div className={`p-3 rounded-xl bg-${stat.color}-50`}>
-                <stat.icon size={20} className={`text-${stat.color}-500`} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-800">{stat.value}</p>
-                <p className="text-xs text-slate-400 font-medium">{stat.label}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
         {/* Margin summary */}
         {summary.total_margin !== undefined && summary.total_margin !== null && (
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-6 text-white shadow-lg">
@@ -572,12 +545,8 @@ export default function ExecutiveSummary() {
               </div>
               <div className="flex items-center gap-8">
                 <div className="text-center">
-                  <p className="text-2xl font-bold">{formatPercentage(summary.margin_percentage)}</p>
-                  <p className="text-xs text-blue-200">Margin Rate</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold">{exec.project_count ?? 0}</p>
-                  <p className="text-xs text-blue-200">Projects</p>
+                  <p className="text-2xl font-bold">{exec.active_count ?? 0}</p>
+                  <p className="text-xs text-blue-200">Active Projects</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold">{summary.resource_count ?? 0}</p>

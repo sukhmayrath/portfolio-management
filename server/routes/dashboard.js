@@ -342,7 +342,9 @@ router.get('/executive-summary', (req, res) => {
     WHERE m.status IN ('Pending','In Progress') AND m.due_date < date('now') LIMIT 10
   `).all();
   const criticalRisks = db.prepare(`
-    SELECT r.*, p.name as project_name FROM risks r JOIN projects p ON r.project_id = p.id
+    SELECT r.*, p.name as project_name, t.name as theme_name FROM risks r
+    JOIN projects p ON r.project_id = p.id
+    JOIN investment_themes t ON p.theme_id = t.id
     WHERE r.status = 'Open' AND (r.likelihood = 'Critical' OR r.impact = 'Critical') LIMIT 10
   `).all();
 

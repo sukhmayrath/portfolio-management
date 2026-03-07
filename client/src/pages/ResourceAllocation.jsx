@@ -3,7 +3,7 @@ import { useApi, useMutation } from '../hooks/useApi';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import { formatCurrency, formatPercentage } from '../utils/formatters';
-import { Plus, Trash2, Pencil, User, Briefcase, Clock } from 'lucide-react';
+import { Plus, Trash2, Pencil, User, Briefcase, Clock, RotateCcw } from 'lucide-react';
 
 export default function ResourceAllocation() {
   const { data: allocations, refetch: refetchAllocs } = useApi('/allocations');
@@ -22,12 +22,26 @@ export default function ResourceAllocation() {
   const currentAllocation = selectedResource?.total_allocation_percentage || 0;
   const remaining = 100 - currentAllocation;
 
-  // Filter allocations by selected resource
+  // Split projects into allocated vs available when a resource is selected
+  const { allocatedProjects, availableProjects } = useMemo(() => {
+    if (!projects || !allocations || !form.resource_id) return { allocatedProjects: [], availableProjects: projects || [] };
+    const resourceAllocProjectIds = new Set(
+      allocations.filter(a => a.resource_id === Number(form.resource_id)).map(a => a.project_id)
+    );
+    return {
+      allocatedProjects: projects.filter(p => resourceAllocProjectIds.has(p.id)),
+      availableProjects: projects.filter(p => !resourceAllocProjectIds.has(p.id)),
+    };
+  }, [projects, allocations, form.resource_id]);
+
+  // Filter allocations by selected resource and/or project
   const displayedAllocations = useMemo(() => {
     if (!allocations) return [];
-    if (!form.resource_id) return allocations;
-    return allocations.filter(a => a.resource_id === Number(form.resource_id));
-  }, [allocations, form.resource_id]);
+    let filtered = allocations;
+    if (form.resource_id) filtered = filtered.filter(a => a.resource_id === Number(form.resource_id));
+    if (form.project_id) filtered = filtered.filter(a => a.project_id === Number(form.project_id));
+    return filtered;
+  }, [allocations, form.resource_id, form.project_id]);
 
   const handlePercentageChange = (pct) => {
     const numPct = Number(pct) || 0;
@@ -103,7 +117,7 @@ export default function ResourceAllocation() {
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Resource</label>
-            <select value={form.resource_id} onChange={e => { setForm({ ...form, resource_id: e.target.value, allocation_percentage: '', allocated_hours_per_month: '' }); }} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+            <select value={form.resource_id} onChange={e => { setForm({ ...form, resource_id: e.target.value, project_id: '', allocation_percentage: '', allocated_hours_per_month: '' }); }} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
               <option value="">Select resource...</option>
               {(resources || []).map(r => <option key={r.id} value={r.id}>{r.name} ({formatPercentage(r.total_allocation_percentage)} used)</option>)}
             </select>
@@ -111,8 +125,23 @@ export default function ResourceAllocation() {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Project</label>
             <select value={form.project_id} onChange={e => setForm({ ...form, project_id: e.target.value })} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-              <option value="">Select project...</option>
-              {(projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              <option value="">{form.resource_id ? 'All projects...' : 'Select project...'}</option>
+              {form.resource_id ? (
+                <>
+                  {allocatedProjects.length > 0 && (
+                    <optgroup label="Current Projects">
+                      {allocatedProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </optgroup>
+                  )}
+                  {availableProjects.length > 0 && (
+                    <optgroup label="Other Projects">
+                      {availableProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </optgroup>
+                  )}
+                </>
+              ) : (
+                (projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)
+              )}
             </select>
           </div>
           <div>
@@ -123,9 +152,21 @@ export default function ResourceAllocation() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Hours/mo</label>
             <input type="number" value={form.allocated_hours_per_month} onChange={e => setForm({ ...form, allocated_hours_per_month: e.target.value })} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
-          <button type="submit" className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-dark h-[38px]">
-            <Plus size={16} /> Allocate
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="submit" className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-dark h-[38px]">
+              <Plus size={16} /> Allocate
+            </button>
+            {(form.resource_id || form.project_id) && (
+              <button
+                type="button"
+                onClick={() => setForm({ resource_id: '', project_id: '', allocation_percentage: '', allocated_hours_per_month: '' })}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 h-[38px]"
+                title="Reset filters"
+              >
+                <RotateCcw size={14} /> Reset
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -172,7 +213,9 @@ export default function ResourceAllocation() {
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-700">
-            {form.resource_id ? `Allocations for ${selectedResource?.name || 'Selected Resource'}` : 'Current Allocations'}
+            {form.resource_id || form.project_id
+              ? `Filtered Allocations${selectedResource ? ` — ${selectedResource.name}` : ''}${form.project_id ? ` — ${projects?.find(p => p.id === Number(form.project_id))?.name || 'Project'}` : ''}`
+              : 'Current Allocations'}
           </h3>
           <span className="text-xs text-slate-500">{displayedAllocations.length} allocation{displayedAllocations.length !== 1 ? 's' : ''}</span>
         </div>
