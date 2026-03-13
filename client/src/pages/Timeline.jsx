@@ -6,7 +6,12 @@ import RAGIndicator from '../components/RAGIndicator';
 import ExportButton from '../components/ExportButton';
 import { Filter, X, ChevronDown, ChevronRight, Search, ZoomIn, ZoomOut } from 'lucide-react';
 
-const healthBarColors = { Red: 'bg-red-400', Amber: 'bg-amber-400', Green: 'bg-emerald-400' };
+const healthBarStyles = {
+  Green: 'from-emerald-300/80 to-emerald-400/80',
+  Amber: 'from-amber-300/80 to-amber-400/80',
+  Red: 'from-red-300/80 to-red-400/80',
+};
+const healthDotColors = { Green: 'bg-emerald-400', Amber: 'bg-amber-400', Red: 'bg-red-400' };
 const statusColors = { Active: 'bg-emerald-100 text-emerald-700', Planning: 'bg-blue-100 text-blue-700', Completed: 'bg-slate-100 text-slate-600', 'On Hold': 'bg-amber-100 text-amber-700' };
 
 export default function Timeline() {
@@ -292,24 +297,55 @@ export default function Timeline() {
       {/* Gantt Chart */}
       {totalProjects > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto" ref={ganttRef}>
-          {/* Month headers */}
-          <div className="sticky top-0 z-10 bg-white border-b border-slate-200 flex">
-            <div className="w-64 shrink-0 px-4 py-2 text-xs font-semibold text-slate-500 border-r border-slate-200 flex items-center gap-2">
-              Client / Project
+          {/* Year + Month headers */}
+          <div className="sticky top-0 z-10 bg-white border-b border-slate-200">
+            {/* Year row */}
+            <div className="flex border-b border-slate-100">
+              <div className="w-64 shrink-0 border-r border-slate-200" />
+              <div className="flex-1 flex" style={{ minWidth: `${months.length * 80 * zoomLevel}px` }}>
+                {(() => {
+                  const years = [];
+                  let i = 0;
+                  while (i < months.length) {
+                    const yr = months[i].getFullYear();
+                    let count = 0;
+                    while (i + count < months.length && months[i + count].getFullYear() === yr) count++;
+                    years.push({ year: yr, count });
+                    i += count;
+                  }
+                  return years.map(({ year, count }) => (
+                    <div key={year} className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest py-1.5 border-r border-slate-100" style={{ width: `${(count / months.length) * 100}%` }}>
+                      {year}
+                    </div>
+                  ));
+                })()}
+              </div>
             </div>
-            <div className="flex-1 relative flex" style={{ minWidth: `${months.length * 80 * zoomLevel}px` }}>
-              {months.map((m, i) => {
-                const isCurrentMonth = m.getMonth() === today.getMonth() && m.getFullYear() === today.getFullYear();
-                return (
-                  <div
-                    key={i}
-                    className={`text-center text-xs py-2 border-r border-slate-100 ${isCurrentMonth ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-500'}`}
-                    style={{ width: `${100 / months.length}%` }}
-                  >
-                    {m.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+            {/* Month row */}
+            <div className="flex">
+              <div className="w-64 shrink-0 px-4 py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-r border-slate-200 flex items-center">
+                Client / Project
+              </div>
+              <div className="flex-1 relative flex" style={{ minWidth: `${months.length * 80 * zoomLevel}px` }}>
+                {months.map((m, i) => {
+                  const isCurrentMonth = m.getMonth() === today.getMonth() && m.getFullYear() === today.getFullYear();
+                  return (
+                    <div
+                      key={i}
+                      className={`text-center text-[11px] py-2.5 border-r border-slate-100 font-medium transition-colors ${isCurrentMonth ? 'bg-blue-50/80 text-blue-600 font-semibold' : i % 2 === 0 ? 'text-slate-500 bg-slate-50/30' : 'text-slate-500'}`}
+                      style={{ width: `${100 / months.length}%` }}
+                    >
+                      {m.toLocaleDateString('en-US', { month: 'short' })}
+                    </div>
+                  );
+                })}
+                {/* Today marker in header */}
+                <div className="absolute bottom-0 z-20 pointer-events-none" style={{ left: `${todayPct}%` }}>
+                  <div className="relative -translate-x-1/2">
+                    <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-medium text-blue-500/80 bg-blue-50 rounded px-1.5 py-0.5 whitespace-nowrap">Today</span>
                   </div>
-                );
-              })}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -318,15 +354,17 @@ export default function Timeline() {
             <div key={theme}>
               {/* Client header row */}
               <div
-                className="flex items-center bg-slate-50 border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
+                className="flex items-center bg-gradient-to-r from-slate-50 to-white border-b border-slate-200/80 cursor-pointer hover:from-slate-100 hover:to-slate-50 transition-all duration-200"
                 onClick={() => setCollapsed(prev => ({ ...prev, [theme]: !prev[theme] }))}
               >
-                <div className="w-64 shrink-0 px-4 py-2 flex items-center gap-2">
-                  {collapsed[theme] ? <ChevronRight size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                <div className="w-64 shrink-0 px-4 py-2.5 flex items-center gap-2 border-l-[3px] border-l-slate-300">
+                  <span className={`transition-transform duration-200 ${collapsed[theme] ? '' : 'rotate-0'}`}>
+                    {collapsed[theme] ? <ChevronRight size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-500" />}
+                  </span>
                   <span className="text-sm font-semibold text-slate-800 truncate">{theme}</span>
-                  <span className="text-xs text-slate-400 ml-auto shrink-0">{projs.length}</span>
+                  <span className="text-[10px] text-slate-400 bg-slate-200/60 rounded-full px-2 py-0.5 ml-auto shrink-0 font-medium">{projs.length}</span>
                 </div>
-                <div className="flex-1 relative h-6" style={{ minWidth: `${months.length * 80 * zoomLevel}px` }}>
+                <div className="flex-1 relative h-7" style={{ minWidth: `${months.length * 80 * zoomLevel}px` }}>
                   {/* Aggregate bar for collapsed client */}
                   {collapsed[theme] && (() => {
                     const earliest = Math.min(...projs.map(p => new Date(p.start_date)));
@@ -335,7 +373,7 @@ export default function Timeline() {
                     const width = Math.max(1, ((latest - earliest) / totalMs) * 100);
                     return (
                       <div
-                        className="absolute top-1 h-4 rounded-full bg-slate-300 opacity-60"
+                        className="absolute top-1.5 h-4 rounded-full bg-gradient-to-r from-slate-200 to-slate-300/60"
                         style={{ left: `${left}%`, width: `${width}%`, minWidth: '8px' }}
                       />
                     );
@@ -344,38 +382,43 @@ export default function Timeline() {
               </div>
 
               {/* Individual project rows */}
-              {!collapsed[theme] && projs.map(p => {
+              {!collapsed[theme] && projs.map((p, idx) => {
                 const left = ((new Date(p.start_date) - minDate) / totalMs) * 100;
                 const width = Math.max(1, ((new Date(p.end_date) - new Date(p.start_date)) / totalMs) * 100);
-                const barColor = healthBarColors[p.health_status] || 'bg-slate-300';
+                const barStyle = healthBarStyles[p.health_status] || 'from-slate-300 to-slate-400 shadow-slate-300/30';
                 const statusBadge = statusColors[p.status] || 'bg-slate-100 text-slate-600';
                 return (
                   <div
                     key={p.id}
-                    className="flex items-center border-b border-slate-50 hover:bg-blue-50/30 cursor-pointer group"
+                    className={`flex items-center border-b border-slate-100/60 cursor-pointer group transition-colors duration-150 hover:bg-slate-50/60 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
                     onClick={() => navigate(`/projects/${p.id}`)}
                   >
-                    <div className="w-64 shrink-0 px-4 py-1.5 flex items-center gap-2">
+                    <div className="w-64 shrink-0 px-4 py-2 flex items-center gap-2 border-l-2 border-l-transparent group-hover:border-l-slate-300 transition-colors">
                       <RAGIndicator status={p.health_status} />
-                      <span className="text-sm text-slate-700 truncate flex-1 group-hover:text-blue-600 transition-colors">{p.name}</span>
+                      <span className="text-[13px] text-slate-700 truncate flex-1 group-hover:text-blue-600 transition-colors">{p.name}</span>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 font-medium ${statusBadge}`}>{p.status}</span>
                     </div>
-                    <div className="flex-1 relative h-8 px-1" style={{ minWidth: `${months.length * 80 * zoomLevel}px` }}>
+                    <div className="flex-1 relative h-10 px-1" style={{ minWidth: `${months.length * 80 * zoomLevel}px` }}>
                       {/* Month grid lines */}
-                      {months.map((_, i) => (
-                        <div
-                          key={i}
-                          className="absolute top-0 bottom-0 border-r border-slate-50"
-                          style={{ left: `${(i / months.length) * 100}%` }}
-                        />
-                      ))}
+                      {months.map((m, i) => {
+                        const isCurrentMonth = m.getMonth() === today.getMonth() && m.getFullYear() === today.getFullYear();
+                        return (
+                          <div
+                            key={i}
+                            className={`absolute top-0 bottom-0 border-r ${isCurrentMonth ? 'bg-blue-50/20' : ''} border-slate-100/40`}
+                            style={{ left: `${(i / months.length) * 100}%`, width: `${100 / months.length}%` }}
+                          />
+                        );
+                      })}
                       {/* Project bar */}
                       <div
-                        className={`absolute top-1.5 h-5 rounded-full ${barColor} opacity-80 hover:opacity-100 transition-all hover:shadow-md`}
-                        style={{ left: `${left}%`, width: `${width}%`, minWidth: '8px' }}
+                        className={`absolute top-2 h-6 rounded-md bg-gradient-to-r ${barStyle} transition-all duration-200 hover:brightness-95`}
+                        style={{ left: `${left}%`, width: `${width}%`, minWidth: '12px' }}
                         onMouseEnter={e => handleBarHover(e, p)}
                         onMouseLeave={() => setTooltip(null)}
                       >
+                        {/* Subtle shine overlay */}
+                        <div className="absolute inset-0 rounded-md bg-gradient-to-b from-white/20 to-transparent" style={{ height: '40%' }} />
                         {/* Milestone diamonds */}
                         {p.milestones?.map(m => {
                           const mPct = ((new Date(m.due_date) - new Date(p.start_date)) / (new Date(p.end_date) - new Date(p.start_date))) * 100;
@@ -383,24 +426,24 @@ export default function Timeline() {
                           return (
                             <div
                               key={m.id}
-                              className={`absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rotate-45 border ${
+                              className={`absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rotate-45 border-[1.5px] ${
                                 m.status === 'Completed'
-                                  ? 'bg-white border-white'
+                                  ? 'bg-white/80 border-white/60'
                                   : isOverdue
-                                  ? 'bg-red-600 border-red-600'
-                                  : 'bg-slate-800 border-slate-800'
+                                  ? 'bg-red-400 border-red-300'
+                                  : 'bg-slate-600 border-slate-500'
                               }`}
-                              style={{ left: `${Math.min(95, Math.max(2, mPct))}%` }}
+                              style={{ left: `${Math.min(92, Math.max(3, mPct))}%` }}
                               title={`${m.title} — ${m.status}${isOverdue ? ' (Overdue)' : ''}`}
                             />
                           );
                         })}
                       </div>
                       {/* Today line */}
-                      <div
-                        className="absolute top-0 bottom-0 border-l-2 border-red-400 border-dashed z-10 pointer-events-none"
-                        style={{ left: `${todayPct}%` }}
-                      />
+                      <div className="absolute top-0 bottom-0 z-10 pointer-events-none" style={{ left: `${todayPct}%` }}>
+                        <div className="absolute top-0 bottom-0 w-px bg-blue-400/50" />
+                        <div className="absolute -top-0.5 -left-[2.5px] w-1.5 h-1.5 rounded-full bg-blue-400/70" />
+                      </div>
                     </div>
                   </div>
                 );
@@ -409,15 +452,18 @@ export default function Timeline() {
           ))}
 
           {/* Legend */}
-          <div className="px-4 py-3 border-t border-slate-200 flex flex-wrap items-center gap-4 text-xs text-slate-500 bg-slate-50">
-            <span className="font-medium text-slate-600">Legend:</span>
-            <span className="flex items-center gap-1.5"><span className="w-8 h-2.5 rounded-full bg-emerald-400" /> Green</span>
-            <span className="flex items-center gap-1.5"><span className="w-8 h-2.5 rounded-full bg-amber-400" /> Amber</span>
-            <span className="flex items-center gap-1.5"><span className="w-8 h-2.5 rounded-full bg-red-400" /> Red</span>
-            <span className="border-l border-slate-300 pl-4 flex items-center gap-1.5"><span className="w-2.5 h-2.5 rotate-45 bg-white border border-slate-300 inline-block" /> Completed milestone</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rotate-45 bg-slate-800 inline-block" /> Upcoming milestone</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rotate-45 bg-red-600 inline-block" /> Overdue milestone</span>
-            <span className="border-l border-slate-300 pl-4 flex items-center gap-1.5"><span className="w-4 border-t-2 border-red-400 border-dashed inline-block" /> Today</span>
+          <div className="px-4 py-3.5 border-t border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+              <span className="flex items-center gap-1.5 bg-white/80 border border-slate-150 rounded-full px-2.5 py-1"><span className="w-5 h-2 rounded-full bg-gradient-to-r from-emerald-300/80 to-emerald-400/80" /> Green</span>
+              <span className="flex items-center gap-1.5 bg-white/80 border border-slate-150 rounded-full px-2.5 py-1"><span className="w-5 h-2 rounded-full bg-gradient-to-r from-amber-300/80 to-amber-400/80" /> Amber</span>
+              <span className="flex items-center gap-1.5 bg-white/80 border border-slate-150 rounded-full px-2.5 py-1"><span className="w-5 h-2 rounded-full bg-gradient-to-r from-red-300/80 to-red-400/80" /> Red</span>
+              <span className="w-px h-4 bg-slate-200 mx-0.5" />
+              <span className="flex items-center gap-1.5 bg-white/80 border border-slate-150 rounded-full px-2.5 py-1"><span className="w-2 h-2 rotate-45 bg-white border-[1.5px] border-slate-300 inline-block" /> Done</span>
+              <span className="flex items-center gap-1.5 bg-white/80 border border-slate-150 rounded-full px-2.5 py-1"><span className="w-2 h-2 rotate-45 bg-slate-600 border-[1.5px] border-slate-500 inline-block" /> Upcoming</span>
+              <span className="flex items-center gap-1.5 bg-white/80 border border-slate-150 rounded-full px-2.5 py-1"><span className="w-2 h-2 rotate-45 bg-red-400 border-[1.5px] border-red-300 inline-block" /> Overdue</span>
+              <span className="w-px h-4 bg-slate-200 mx-0.5" />
+              <span className="flex items-center gap-1.5 bg-white/80 border border-slate-150 rounded-full px-2.5 py-1"><span className="w-3 h-px bg-blue-400/50 rounded inline-block" /> Today</span>
+            </div>
           </div>
         </div>
       )}
@@ -425,24 +471,40 @@ export default function Timeline() {
       {/* Tooltip */}
       {tooltip && (
         <div
-          className="fixed z-50 bg-slate-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl border border-slate-700 pointer-events-none max-w-xs"
+          className="fixed z-50 rounded-xl px-4 py-3 shadow-2xl pointer-events-none max-w-xs border border-white/20"
           style={{
-            left: `${Math.min(tooltip.x, window.innerWidth - 250)}px`,
-            top: `${tooltip.y - 70}px`,
+            left: `${Math.min(tooltip.x, window.innerWidth - 280)}px`,
+            top: `${tooltip.y - 90}px`,
             transform: 'translateX(-50%)',
+            background: 'rgba(15, 23, 42, 0.92)',
+            backdropFilter: 'blur(12px)',
           }}
         >
-          <p className="font-semibold mb-1">{tooltip.project.name}</p>
-          <p className="text-slate-300">{tooltip.project.theme_name}</p>
-          <div className="flex items-center gap-3 mt-1 pt-1 border-t border-slate-600">
-            <span>{new Date(tooltip.project.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-            <span className="text-slate-400">→</span>
-            <span>{new Date(tooltip.project.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+          <div className="flex items-start gap-2 mb-2">
+            <div className="flex-1">
+              <p className="font-semibold text-white text-sm leading-tight">{tooltip.project.name}</p>
+              <p className="text-slate-400 text-[11px] mt-0.5">{tooltip.project.theme_name}</p>
+            </div>
+            <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${healthDotColors[tooltip.project.health_status] || 'bg-slate-400'}`} />
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-slate-300 bg-white/5 rounded-lg px-2.5 py-1.5 mb-2">
+            <span className="font-medium">{new Date(tooltip.project.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            <span className="text-slate-500">—</span>
+            <span className="font-medium">{new Date(tooltip.project.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
           </div>
           {tooltip.totalMilestones > 0 && (
-            <p className="mt-1 text-slate-300">
-              Milestones: {tooltip.completedMs}/{tooltip.totalMilestones} completed
-            </p>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">Milestones</span>
+                <span className="text-white font-medium">{tooltip.completedMs}/{tooltip.totalMilestones}</span>
+              </div>
+              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all"
+                  style={{ width: `${(tooltip.completedMs / tooltip.totalMilestones) * 100}%` }}
+                />
+              </div>
+            </div>
           )}
         </div>
       )}

@@ -4,6 +4,7 @@ import PageHeader from '../components/PageHeader';
 import { formatCurrency, formatPercentage } from '../utils/formatters';
 import { DollarSign, TrendingUp, TrendingDown, Building, Users, Search, ChevronDown, ArrowUpRight, ArrowDownRight, Briefcase } from 'lucide-react';
 import ExportButton from '../components/ExportButton';
+import PrintButton from '../components/PrintButton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 const TABS = [
@@ -91,6 +92,7 @@ export default function CostDashboard() {
   return (
     <div>
       <PageHeader title="Financial Analysis" subtitle="Client cost vs Company cost analysis">
+        <PrintButton />
         <ExportButton endpoint="/export/projects" filename="financial-analysis.csv" />
       </PageHeader>
 

@@ -7,7 +7,7 @@ import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
 import KanbanBoard from '../components/KanbanBoard';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { Plus, LayoutGrid, Table, ChevronRight } from 'lucide-react';
+import { Plus, LayoutGrid, Table, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 
 const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Critical'];
 const PRIORITY_COLORS = {
@@ -80,6 +80,8 @@ export default function DemandPipeline() {
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [form, setForm] = useState({ ...emptyForm });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ ...emptyForm });
   const [reviewNotes, setReviewNotes] = useState('');
   const [convertForm, setConvertForm] = useState({
     theme_id: '',
@@ -91,6 +93,7 @@ export default function DemandPipeline() {
   });
 
   const scorePreview = useMemo(() => calculateScore(form), [form.strategic_alignment, form.financial_impact, form.risk_level, form.resource_availability]);
+  const editScorePreview = useMemo(() => calculateScore(editForm), [editForm.strategic_alignment, editForm.financial_impact, editForm.risk_level, editForm.resource_availability]);
 
   const columns = [
     { key: 'title', label: 'Title', render: (v) => <span className="font-medium text-slate-900">{v}</span> },
@@ -156,7 +159,48 @@ export default function DemandPipeline() {
   const handleRowClick = (row) => {
     setSelectedRequest(row);
     setReviewNotes('');
+    setIsEditing(false);
     setShowDetailModal(true);
+  };
+
+  const handleStartEdit = () => {
+    setEditForm({
+      title: selectedRequest.title || '',
+      description: selectedRequest.description || '',
+      theme_id: selectedRequest.theme_id || '',
+      business_justification: selectedRequest.business_justification || '',
+      estimated_budget: selectedRequest.estimated_budget || '',
+      estimated_timeline: selectedRequest.estimated_timeline || '',
+      priority: selectedRequest.priority || 'Medium',
+      strategic_alignment: selectedRequest.strategic_alignment || 3,
+      financial_impact: selectedRequest.financial_impact || 3,
+      risk_level: selectedRequest.risk_level || 3,
+      resource_availability: selectedRequest.resource_availability || 3,
+    });
+    setIsEditing(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    await mutate('put', `/requests/${selectedRequest.id}`, {
+      ...editForm,
+      theme_id: editForm.theme_id ? Number(editForm.theme_id) : null,
+      estimated_budget: Number(editForm.estimated_budget) || 0,
+      strategic_alignment: Number(editForm.strategic_alignment),
+      financial_impact: Number(editForm.financial_impact),
+      risk_level: Number(editForm.risk_level),
+      resource_availability: Number(editForm.resource_availability),
+    });
+    setIsEditing(false);
+    setShowDetailModal(false);
+    refetch();
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this request?')) return;
+    await mutate('delete', `/requests/${id}`);
+    setShowDetailModal(false);
+    refetch();
   };
 
   const handleReview = async (decision) => {
@@ -416,9 +460,25 @@ export default function DemandPipeline() {
       </Modal>
 
       {/* Request Detail / Review Modal */}
-      <Modal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} title={selectedRequest?.title || 'Request Details'} wide>
-        {selectedRequest && (
+      <Modal isOpen={showDetailModal} onClose={() => { setShowDetailModal(false); setIsEditing(false); }} title={isEditing ? 'Edit Request' : (selectedRequest?.title || 'Request Details')} wide>
+        {selectedRequest && !isEditing && (
           <div className="space-y-5">
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={handleStartEdit}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+              >
+                <Pencil size={14} /> Edit
+              </button>
+              <button
+                onClick={() => handleDelete(selectedRequest.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100"
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs font-medium text-slate-500 mb-1">Status</p>
@@ -529,6 +589,126 @@ export default function DemandPipeline() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Edit Mode */}
+        {selectedRequest && isEditing && (
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+              <input
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                required
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+              <textarea
+                value={editForm.description}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                rows={2}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Client</label>
+                <select
+                  value={editForm.theme_id}
+                  onChange={(e) => setEditForm({ ...editForm, theme_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">Select client...</option>
+                  {(themes || []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
+                <select
+                  value={editForm.priority}
+                  onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Business Justification</label>
+              <textarea
+                value={editForm.business_justification}
+                onChange={(e) => setEditForm({ ...editForm, business_justification: e.target.value })}
+                rows={2}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Estimated Budget</label>
+                <input
+                  type="number"
+                  value={editForm.estimated_budget}
+                  onChange={(e) => setEditForm({ ...editForm, estimated_budget: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="$0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Estimated Timeline</label>
+                <input
+                  value={editForm.estimated_timeline}
+                  onChange={(e) => setEditForm({ ...editForm, estimated_timeline: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="e.g. 3 months"
+                />
+              </div>
+            </div>
+
+            {/* Scoring Criteria */}
+            <div className="border-t border-slate-200 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold text-slate-800">Scoring Criteria</h4>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">Total Score:</span>
+                  <span className="text-sm font-bold text-slate-800">{editScorePreview.toFixed(0)}%</span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { key: 'strategic_alignment', label: 'Strategic Alignment', weight: '30%' },
+                  { key: 'financial_impact', label: 'Financial Impact', weight: '30%' },
+                  { key: 'risk_level', label: 'Risk Level', weight: '20%' },
+                  { key: 'resource_availability', label: 'Resource Availability', weight: '20%' },
+                ].map(({ key, label, weight }) => (
+                  <div key={key}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-slate-600">{label} ({weight})</label>
+                      <span className="text-xs font-semibold text-slate-700">{editForm[key]}/5</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      step="1"
+                      value={editForm[key]}
+                      onChange={(e) => setEditForm({ ...editForm, [key]: Number(e.target.value) })}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                      <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Cancel</button>
+              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark">Save Changes</button>
+            </div>
+          </form>
         )}
       </Modal>
 

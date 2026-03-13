@@ -15,18 +15,254 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   PREPARING-PRINT: applied via JS *before* window.print() so
+   Recharts ResizeObserver fires and SVGs re-render at the
+   correct print dimensions.  Mirrors the @media print layout.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Kill ALL transitions & animations so Recharts renders instantly */
+body.preparing-print *,
+body.preparing-print *::before,
+body.preparing-print *::after {
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}
+
+body.preparing-print .no-print,
+body.preparing-print aside {
+  display: none !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+body.preparing-print .fixed.inset-0 {
+  display: none !important;
+}
+body.preparing-print .flex.items-center.justify-between > .flex.items-center.gap-3 {
+  display: none !important;
+}
+body.preparing-print #root,
+body.preparing-print #app-layout {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: auto !important;
+  overflow: visible !important;
+}
+body.preparing-print #app-layout > div:not(aside) {
+  display: block !important;
+  overflow: visible !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+}
+body.preparing-print main {
+  overflow: visible !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+body.preparing-print [class*="ml-"] {
+  margin-left: 0 !important;
+}
+/* Grid overrides — sm → md → lg → xl */
+body.preparing-print .grid[class*="sm:grid-cols-2"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+body.preparing-print .grid[class*="md:grid-cols-2"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+body.preparing-print .grid[class*="md:grid-cols-3"] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+body.preparing-print .grid[class*="md:grid-cols-4"] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+body.preparing-print .grid[class*="md:grid-cols-5"] { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+body.preparing-print .grid[class*="lg:grid-cols-2"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+body.preparing-print .grid[class*="lg:grid-cols-3"] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+body.preparing-print .grid[class*="lg:grid-cols-4"] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+body.preparing-print .grid[class*="lg:grid-cols-12"] { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+body.preparing-print .grid[class*="xl:grid-cols-4"] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+body.preparing-print [class*="lg:col-span-2"] { grid-column: span 2 / span 2 !important; }
+body.preparing-print [class*="lg:col-span-4"] { grid-column: span 4 / span 4 !important; }
+body.preparing-print [class*="lg:col-span-8"] { grid-column: span 8 / span 8 !important; }
+
+/* ══════════════════════════════════════════════════════════════
+   Recharts: allow chart labels to overflow their SVG boundary
+   so donut / pie labels are never clipped.
+   ══════════════════════════════════════════════════════════════ */
+body.preparing-print .recharts-responsive-container,
+body.preparing-print .recharts-wrapper {
+  overflow: visible !important;
+}
+body.preparing-print .recharts-surface {
+  overflow: visible !important;
+}
+
 @media print {
+  @page {
+    margin: 0.4in;
+    size: A4;
+  }
+
+  /* ── Preserve all on-screen colors, backgrounds, shadows ── */
+  /* ── Kill animations so charts don't animate during print ── */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+
+  /* ── Hide only navigation chrome (sidebar, search bar, action buttons) ── */
   .no-print,
   aside {
     display: none !important;
+    position: absolute !important;
+    left: -9999px !important;
   }
-  body {
-    background-color: white;
+
+  /* Hide the mobile sidebar overlay backdrop */
+  .fixed.inset-0 {
+    display: none !important;
   }
-  main {
+
+  /* Hide Print / Export buttons in PageHeader */
+  .flex.items-center.justify-between > .flex.items-center.gap-3 {
+    display: none !important;
+  }
+
+  /* ── Layout: remove flex so sidebar gap disappears, content goes full-width ── */
+  #root,
+  #app-layout {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
     overflow: visible !important;
   }
+
+  /* Content wrapper next to sidebar → full width, no clipping */
+  #app-layout > div:not(aside) {
+    display: block !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  main {
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Remove any leftover ml-* from Tailwind sidebar offset */
+  [class*="ml-"] {
+    margin-left: 0 !important;
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     Force desktop grid layouts in print.
+     A4 width (~794px) is below the lg (1024px) breakpoint,
+     so Tailwind's lg: responsive classes don't fire.
+     Rules are ordered sm → md → lg → xl so the largest
+     breakpoint wins when an element has multiple (e.g.
+     sm:grid-cols-2 lg:grid-cols-4 → 4 cols wins).
+     ══════════════════════════════════════════════════════════ */
+
+  /* — sm breakpoint — */
+  .grid[class*="sm:grid-cols-2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* — md breakpoint — */
+  .grid[class*="md:grid-cols-2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .grid[class*="md:grid-cols-3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .grid[class*="md:grid-cols-4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  .grid[class*="md:grid-cols-5"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  /* — lg breakpoint — */
+  .grid[class*="lg:grid-cols-2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .grid[class*="lg:grid-cols-3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .grid[class*="lg:grid-cols-4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  .grid[class*="lg:grid-cols-12"] {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  }
+
+  /* — xl breakpoint — */
+  .grid[class*="xl:grid-cols-4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  /* — col-span overrides — */
+  [class*="lg:col-span-2"] {
+    grid-column: span 2 / span 2 !important;
+  }
+  [class*="lg:col-span-4"] {
+    grid-column: span 4 / span 4 !important;
+  }
+  [class*="lg:col-span-8"] {
+    grid-column: span 8 / span 8 !important;
+  }
+
+  /* ── Recharts: allow chart labels to overflow ── */
+  .recharts-responsive-container,
+  .recharts-wrapper {
+    overflow: visible !important;
+  }
+  .recharts-surface {
+    overflow: visible !important;
+  }
+
+  /* ── Keep everything else exactly as on screen ── */
+  /* Cards: prevent splitting across pages */
+  [class*="rounded-xl"],
+  [class*="rounded-2xl"] {
+    break-inside: avoid;
+  }
+
+  /* Charts: prevent splitting */
+  .recharts-responsive-container {
+    break-inside: avoid;
+  }
+
+  /* Tables */
+  tr {
+    break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* Manual page breaks */
   .print-break {
-    page-break-before: always;
+    break-before: page;
+  }
+
+  /* Ensure no clipping anywhere */
+  html, body {
+    overflow: visible !important;
+  }
+
+  /* ── Print timestamp footer ── */
+  body::after {
+    content: "Printed on " attr(data-print-date);
+    display: block;
+    text-align: right;
+    font-size: 10px;
+    color: #94a3b8;
+    margin-top: 2rem;
   }
 }

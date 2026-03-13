@@ -9,10 +9,11 @@ import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
 } from 'recharts';
 import {
-  Printer, TrendingUp, TrendingDown, DollarSign, Wallet, BarChart3,
+  TrendingUp, TrendingDown, DollarSign, Wallet, BarChart3,
   Percent, AlertTriangle, Clock, ShieldAlert, Briefcase, Activity,
   CheckCircle2, LayoutGrid, ArrowRight,
 } from 'lucide-react';
+import PrintButton from '../components/PrintButton';
 
 /* ---------- colour constants ---------- */
 const RAG_COLORS = { Green: '#10b981', Amber: '#f59e0b', Red: '#ef4444' };
@@ -187,17 +188,9 @@ export default function ExecutiveSummary() {
   return (
     <div className="space-y-0">
       {/* ---- Header ---- */}
-      <div className="no-print">
-        <PageHeader title="Executive Summary" subtitle="Portfolio overview for leadership">
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all shadow-sm"
-          >
-            <Printer size={16} />
-            Print / PDF
-          </button>
-        </PageHeader>
-      </div>
+      <PageHeader title="Executive Summary" subtitle="Portfolio overview for leadership">
+        <PrintButton />
+      </PageHeader>
 
       <div className="space-y-6">
         {/* ================================================================

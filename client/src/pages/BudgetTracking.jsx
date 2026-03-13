@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useApi } from '../hooks/useApi';
 import PageHeader from '../components/PageHeader';
 import ExportButton from '../components/ExportButton';
+import PrintButton from '../components/PrintButton';
 import { formatCurrency } from '../utils/formatters';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 
@@ -40,6 +41,7 @@ export default function BudgetTracking() {
   return (
     <div>
       <PageHeader title="Budget Tracking" subtitle="Planned vs actual spend analysis">
+        <PrintButton />
         <ExportButton endpoint="/export/projects" filename="budget-export.csv" />
       </PageHeader>
       <div className="flex gap-1 mb-6 bg-slate-100 rounded-lg p-1 w-fit">
