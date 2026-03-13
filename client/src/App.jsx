@@ -22,10 +22,22 @@ import DemandPipeline from './pages/DemandPipeline';
 import Automations from './pages/Automations';
 import DashboardsList from './pages/DashboardsList';
 import CustomDashboard from './pages/CustomDashboard';
+import UserManagement from './pages/UserManagement';
+
+const ROLE_ACCESS = {
+  Financial: ['Admin', 'PMO', 'Executive'],
+  Admin: ['Admin'],
+};
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
   if (!token) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RoleProtectedRoute({ children, allowedRoles }) {
+  const user = (() => { try { return JSON.parse(localStorage.getItem('user')); } catch { return null; } })();
+  if (!allowedRoles.includes(user?.role)) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -44,18 +56,19 @@ function App() {
           <Route path="resources/:id" element={<ResourceDetail />} />
           <Route path="allocation" element={<ResourceAllocation />} />
           <Route path="utilization" element={<ResourceUtilization />} />
-          <Route path="costs" element={<CostDashboard />} />
+          <Route path="costs" element={<RoleProtectedRoute allowedRoles={ROLE_ACCESS.Financial}><CostDashboard /></RoleProtectedRoute>} />
           <Route path="timeline" element={<Timeline />} />
           <Route path="roadmap" element={<Roadmap />} />
           <Route path="alerts" element={<AlertRules />} />
-          <Route path="budget" element={<BudgetTracking />} />
-          <Route path="executive-summary" element={<ExecutiveSummary />} />
+          <Route path="budget" element={<RoleProtectedRoute allowedRoles={ROLE_ACCESS.Financial}><BudgetTracking /></RoleProtectedRoute>} />
+          <Route path="executive-summary" element={<RoleProtectedRoute allowedRoles={ROLE_ACCESS.Financial}><ExecutiveSummary /></RoleProtectedRoute>} />
           <Route path="audit" element={<AuditLog />} />
           <Route path="templates" element={<Templates />} />
           <Route path="demand" element={<DemandPipeline />} />
           <Route path="automations" element={<Automations />} />
           <Route path="dashboards" element={<DashboardsList />} />
           <Route path="dashboards/:id" element={<CustomDashboard />} />
+          <Route path="users" element={<RoleProtectedRoute allowedRoles={ROLE_ACCESS.Admin}><UserManagement /></RoleProtectedRoute>} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -55,29 +55,51 @@ router.get('/summary', (req, res) => {
   const totalCompanyCost = costs.total_resource_cost + totalFacility + totalOverhead;
   const totalBudget = db.prepare('SELECT COALESCE(SUM(total_budget), 0) as total FROM investment_themes').get().total;
 
-  res.json({
+  const FINANCIAL_ROLES = ['Admin', 'PMO', 'Executive'];
+  const canSeeFinancials = req.user && FINANCIAL_ROLES.includes(req.user.role);
+
+  const base = {
     theme_count: themeCount,
     project_count: projectCount,
     resource_count: resourceCount,
-    total_budget: totalBudget,
-    total_resource_cost: costs.total_resource_cost,
-    total_facility_cost: totalFacility,
-    total_overhead_cost: totalOverhead,
-    total_company_cost: totalCompanyCost,
-    total_client_revenue: totalRevenue,
-    total_margin: totalRevenue - totalCompanyCost,
-    margin_percentage: totalRevenue > 0 ? ((totalRevenue - totalCompanyCost) / totalRevenue) * 100 : 0
-  });
+  };
+
+  if (canSeeFinancials) {
+    Object.assign(base, {
+      total_budget: totalBudget,
+      total_resource_cost: costs.total_resource_cost,
+      total_facility_cost: totalFacility,
+      total_overhead_cost: totalOverhead,
+      total_company_cost: totalCompanyCost,
+      total_client_revenue: totalRevenue,
+      total_margin: totalRevenue - totalCompanyCost,
+      margin_percentage: totalRevenue > 0 ? ((totalRevenue - totalCompanyCost) / totalRevenue) * 100 : 0,
+    });
+  }
+
+  res.json(base);
 });
 
 // GET /api/dashboard/cost-breakdown
 router.get('/cost-breakdown', (req, res) => {
+  const FINANCIAL_ROLES = ['Admin', 'PMO', 'Executive'];
+  const canSeeFinancials = req.user && FINANCIAL_ROLES.includes(req.user.role);
+
   const themes = db.prepare('SELECT * FROM investment_themes ORDER BY name').all();
 
   const result = themes.map(theme => {
     const projects = db.prepare('SELECT * FROM projects WHERE theme_id = ? ORDER BY name').all(theme.id);
 
     const projectDetails = projects.map(p => {
+      const base = {
+        id: p.id,
+        name: p.name,
+        status: p.status,
+        health_status: p.health_status,
+      };
+
+      if (!canSeeFinancials) return base;
+
       const resourceCost = db.prepare(`
         SELECT COALESCE(SUM(ra.allocated_hours_per_month * r.hourly_rate), 0) as total
         FROM resource_allocations ra
@@ -99,10 +121,7 @@ router.get('/cost-breakdown', (req, res) => {
       const clientRevenue = allocatedHours * p.client_billing_rate_per_hour;
 
       return {
-        id: p.id,
-        name: p.name,
-        status: p.status,
-        health_status: p.health_status,
+        ...base,
         resource_cost: resourceCost,
         fixed_facility_cost: p.fixed_facility_cost_monthly,
         facility_line_items: facilityLineItems,
@@ -115,6 +134,15 @@ router.get('/cost-breakdown', (req, res) => {
       };
     });
 
+    const base = {
+      id: theme.id,
+      name: theme.name,
+      status: theme.status,
+      projects: projectDetails
+    };
+
+    if (!canSeeFinancials) return base;
+
     const themeResourceCost = projectDetails.reduce((s, p) => s + p.resource_cost, 0);
     const themeFacilityCost = projectDetails.reduce((s, p) => s + p.total_facility_cost, 0);
     const themeOverhead = projectDetails.reduce((s, p) => s + p.overhead_cost, 0);
@@ -122,9 +150,7 @@ router.get('/cost-breakdown', (req, res) => {
     const themeRevenue = projectDetails.reduce((s, p) => s + p.client_revenue, 0);
 
     return {
-      id: theme.id,
-      name: theme.name,
-      status: theme.status,
+      ...base,
       total_budget: theme.total_budget,
       resource_cost: themeResourceCost,
       facility_cost: themeFacilityCost,
@@ -133,7 +159,6 @@ router.get('/cost-breakdown', (req, res) => {
       client_revenue: themeRevenue,
       margin: themeRevenue - themeCompanyCost,
       margin_percentage: themeRevenue > 0 ? ((themeRevenue - themeCompanyCost) / themeRevenue) * 100 : 0,
-      projects: projectDetails
     };
   });
 

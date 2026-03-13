@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { mkdirSync } from 'fs';
-import { authenticate } from './middleware/auth.js';
+import { authenticate, requireRole } from './middleware/auth.js';
 import themesRouter from './routes/themes.js';
 import projectsRouter from './routes/projects.js';
 import resourcesRouter from './routes/resources.js';
@@ -47,7 +47,7 @@ app.use('/api/projects', projectsRouter);
 app.use('/api/resources', resourcesRouter);
 app.use('/api/allocations', allocationsRouter);
 app.use('/api/tasks', tasksRouter);
-app.use('/api/facility-costs', facilityCostsRouter);
+app.use('/api/facility-costs', requireRole('Admin', 'PMO', 'Executive'), facilityCostsRouter);
 app.use('/api/dashboard', dashboardRouter);
 
 // Auth & system routes
@@ -73,10 +73,10 @@ app.use('/api/search', searchRouter);
 app.use('/api/automations', automationsRouter);
 app.use('/api/attachments', attachmentsRouter);
 
-// Financial & reporting routes
-app.use('/api/export', exportRouter);
-app.use('/api/snapshots', snapshotsRouter);
-app.use('/api/budget', budgetRouter);
+// Financial & reporting routes (Admin, PMO, Executive only)
+app.use('/api/export', requireRole('Admin', 'PMO', 'Executive'), exportRouter);
+app.use('/api/snapshots', requireRole('Admin', 'PMO', 'Executive'), snapshotsRouter);
+app.use('/api/budget', requireRole('Admin', 'PMO', 'Executive'), budgetRouter);
 app.use('/api/timeline', timelineRouter);
 
 // Planning & customization routes

@@ -7,6 +7,7 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatCurrency, formatPercentage } from '../utils/formatters';
 import { Edit2, Trash2 } from 'lucide-react';
+import { canViewFinancials } from '../utils/roleHelpers';
 
 export default function ResourceDetail() {
   const { id } = useParams();
@@ -35,6 +36,7 @@ export default function ResourceDetail() {
   const handleDelete = async () => { await mutate('delete', `/resources/${id}`); navigate('/resources'); };
 
   const totalMonthlyCost = (resource.allocations || []).reduce((s, a) => s + (a.monthly_cost || 0), 0);
+  const showFinancials = canViewFinancials();
 
   return (
     <div>
@@ -43,11 +45,13 @@ export default function ResourceDetail() {
         <button onClick={() => setShowDelete(true)} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-danger bg-red-50 rounded-lg hover:bg-red-100"><Trash2 size={16} /></button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-500">Hourly Rate</p>
-          <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrency(resource.hourly_rate)}/hr</p>
-        </div>
+      <div className={`grid grid-cols-1 md:grid-cols-${showFinancials ? '4' : '2'} gap-4 mb-6`}>
+        {showFinancials && (
+          <div className="bg-white rounded-lg border border-slate-200 p-4">
+            <p className="text-sm text-slate-500">Hourly Rate</p>
+            <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrency(resource.hourly_rate)}/hr</p>
+          </div>
+        )}
         <div className="bg-white rounded-lg border border-slate-200 p-4">
           <p className="text-sm text-slate-500">Available Hours</p>
           <p className="text-lg font-bold text-slate-900 mt-1">{resource.available_hours_per_month} hrs/mo</p>
@@ -56,10 +60,12 @@ export default function ResourceDetail() {
           <p className="text-sm text-slate-500">Total Allocated</p>
           <p className={`text-lg font-bold mt-1 ${resource.total_allocation_percentage >= 100 ? 'text-green-600' : 'text-slate-900'}`}>{formatPercentage(resource.total_allocation_percentage)}</p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-500">Monthly Cost</p>
-          <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrency(totalMonthlyCost)}</p>
-        </div>
+        {showFinancials && (
+          <div className="bg-white rounded-lg border border-slate-200 p-4">
+            <p className="text-sm text-slate-500">Monthly Cost</p>
+            <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrency(totalMonthlyCost)}</p>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 p-5 mb-6">
@@ -75,7 +81,7 @@ export default function ResourceDetail() {
             <th className="px-4 py-3 text-left font-semibold text-slate-600">Client</th>
             <th className="px-4 py-3 text-right font-semibold text-slate-600">Allocation</th>
             <th className="px-4 py-3 text-right font-semibold text-slate-600">Hours/mo</th>
-            <th className="px-4 py-3 text-right font-semibold text-slate-600">Cost/mo</th>
+            {showFinancials && <th className="px-4 py-3 text-right font-semibold text-slate-600">Cost/mo</th>}
           </tr></thead>
           <tbody className="divide-y divide-slate-100">
             {(resource.allocations || []).map(a => (
@@ -84,18 +90,18 @@ export default function ResourceDetail() {
                 <td className="px-4 py-3 text-slate-600">{a.theme_name}</td>
                 <td className="px-4 py-3 text-right">{formatPercentage(a.allocation_percentage)}</td>
                 <td className="px-4 py-3 text-right">{a.allocated_hours_per_month}</td>
-                <td className="px-4 py-3 text-right font-medium">{formatCurrency(a.monthly_cost)}</td>
+                {showFinancials && <td className="px-4 py-3 text-right font-medium">{formatCurrency(a.monthly_cost)}</td>}
               </tr>
             ))}
             {(!resource.allocations || resource.allocations.length === 0) && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">No allocations</td></tr>
+              <tr><td colSpan={showFinancials ? 5 : 4} className="px-4 py-8 text-center text-slate-400">No allocations</td></tr>
             )}
             {resource.allocations?.length > 0 && (
               <tr className="bg-slate-50 font-semibold">
                 <td className="px-4 py-3 text-slate-900" colSpan={2}>Total</td>
                 <td className="px-4 py-3 text-right">{formatPercentage(resource.total_allocation_percentage)}</td>
                 <td className="px-4 py-3 text-right">{resource.allocations.reduce((s, a) => s + a.allocated_hours_per_month, 0)}</td>
-                <td className="px-4 py-3 text-right">{formatCurrency(totalMonthlyCost)}</td>
+                {showFinancials && <td className="px-4 py-3 text-right">{formatCurrency(totalMonthlyCost)}</td>}
               </tr>
             )}
           </tbody>
@@ -110,8 +116,8 @@ export default function ResourceDetail() {
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Role</label><input value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Department</label><input value={editForm.department} onChange={e => setEditForm({ ...editForm, department: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Hourly Rate ($)</label><input type="number" value={editForm.hourly_rate} onChange={e => setEditForm({ ...editForm, hourly_rate: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
+            <div className={`grid ${showFinancials ? 'grid-cols-2' : ''} gap-4`}>
+              {showFinancials && <div><label className="block text-sm font-medium text-slate-700 mb-1">Hourly Rate ($)</label><input type="number" value={editForm.hourly_rate} onChange={e => setEditForm({ ...editForm, hourly_rate: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>}
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Available Hrs/mo</label><input type="number" value={editForm.available_hours_per_month} onChange={e => setEditForm({ ...editForm, available_hours_per_month: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
             </div>
             <div className="flex justify-end gap-3 pt-2">

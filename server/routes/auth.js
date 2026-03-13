@@ -60,4 +60,46 @@ router.get('/users', (req, res) => {
   res.json(users);
 });
 
+// PUT /api/auth/users/:id (admin only - update user)
+router.put('/users/:id', (req, res) => {
+  if (!req.user || req.user.role !== 'Admin') {
+    return res.status(403).json({ error: { message: 'Admin access required' } });
+  }
+  const existing = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: { message: 'User not found' } });
+
+  const { display_name, email, role, is_active, password } = req.body;
+  const updated = {
+    display_name: display_name ?? existing.display_name,
+    email: email ?? existing.email,
+    role: role ?? existing.role,
+    is_active: is_active !== undefined ? (is_active ? 1 : 0) : existing.is_active,
+  };
+
+  if (password) {
+    db.prepare('UPDATE users SET display_name=?, email=?, role=?, is_active=?, password_hash=? WHERE id=?')
+      .run(updated.display_name, updated.email, updated.role, updated.is_active, hashPassword(password), req.params.id);
+  } else {
+    db.prepare('UPDATE users SET display_name=?, email=?, role=?, is_active=? WHERE id=?')
+      .run(updated.display_name, updated.email, updated.role, updated.is_active, req.params.id);
+  }
+
+  const user = db.prepare('SELECT id, username, display_name, email, role, is_active, created_at FROM users WHERE id = ?').get(req.params.id);
+  res.json(user);
+});
+
+// DELETE /api/auth/users/:id (admin only - soft delete)
+router.delete('/users/:id', (req, res) => {
+  if (!req.user || req.user.role !== 'Admin') {
+    return res.status(403).json({ error: { message: 'Admin access required' } });
+  }
+  // Prevent self-deletion
+  if (Number(req.params.id) === req.user.id) {
+    return res.status(400).json({ error: { message: 'Cannot delete your own account' } });
+  }
+  const result = db.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: { message: 'User not found' } });
+  res.json({ message: 'User deactivated' });
+});
+
 export default router;

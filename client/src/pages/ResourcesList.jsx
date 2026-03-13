@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import { formatCurrency, formatPercentage } from '../utils/formatters';
 import { Plus, Minus, RotateCcw, Save, FolderOpen, Scaling } from 'lucide-react';
+import { canViewFinancials } from '../utils/roleHelpers';
 
 export default function ResourcesList() {
   const { data: resources, loading, refetch } = useApi('/resources');
@@ -52,6 +53,8 @@ export default function ResourcesList() {
     if (capacityMode) resetCapacity();
     setCapacityMode(!capacityMode);
   };
+
+  const showFinancials = canViewFinancials();
 
   if (loading) return <div className="p-8 text-center text-slate-500">Loading resources...</div>;
 
@@ -135,7 +138,7 @@ export default function ResourcesList() {
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Name</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Role</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Department</th>
-              <th className="px-4 py-3 text-right font-semibold text-slate-600">Rate</th>
+              {showFinancials && <th className="px-4 py-3 text-right font-semibold text-slate-600">Rate</th>}
               <th className="px-4 py-3 text-right font-semibold text-slate-600">Hrs/mo</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600" style={{ minWidth: 160 }}>Utilization</th>
               <th className="px-4 py-3 text-right font-semibold text-slate-600">Allocated</th>
@@ -143,7 +146,7 @@ export default function ResourcesList() {
                 <>
                   <th className="px-4 py-3 text-center font-semibold text-slate-600">Adjustment</th>
                   <th className="px-4 py-3 text-center font-semibold text-slate-600">Projected</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-600">Cost Impact</th>
+                  {showFinancials && <th className="px-4 py-3 text-right font-semibold text-slate-600">Cost Impact</th>}
                 </>
               )}
             </tr>
@@ -157,7 +160,7 @@ export default function ResourcesList() {
                   <td className="px-4 py-3 font-medium text-slate-900">{r.name}</td>
                   <td className="px-4 py-3 text-slate-600">{r.role}</td>
                   <td className="px-4 py-3 text-slate-600">{r.department}</td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(r.hourly_rate)}/hr</td>
+                  {showFinancials && <td className="px-4 py-3 text-right">{formatCurrency(r.hourly_rate)}/hr</td>}
                   <td className="px-4 py-3 text-right">{r.available_hours_per_month}</td>
                   <td className="px-4 py-3">
                     <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
@@ -176,9 +179,9 @@ export default function ResourcesList() {
                       <td className="px-4 py-2.5 text-center">
                         <span className={`text-sm font-medium ${r.adjustedUtil > 100 ? 'text-red-600' : r.adjustedUtil > 80 ? 'text-emerald-600' : 'text-blue-600'}`}>{r.adjustedUtil?.toFixed(0) || pct.toFixed(0)}%</span>
                       </td>
-                      <td className="px-4 py-2.5 text-right">
+                      {showFinancials && <td className="px-4 py-2.5 text-right">
                         {adjustments[r.id] ? <span className={`text-sm font-medium ${r.adjustedCost > r.monthlyCost ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(r.adjustedCost - r.monthlyCost)}</span> : <span className="text-slate-400">-</span>}
-                      </td>
+                      </td>}
                     </>
                   )}
                 </tr>
@@ -205,8 +208,8 @@ export default function ResourcesList() {
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Role</label><input value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Department</label><input value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Hourly Rate ($)</label><input type="number" value={form.hourly_rate} onChange={e => setForm({ ...form, hourly_rate: e.target.value })} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
+          <div className={`grid ${showFinancials ? 'grid-cols-2' : ''} gap-4`}>
+            {showFinancials && <div><label className="block text-sm font-medium text-slate-700 mb-1">Hourly Rate ($)</label><input type="number" value={form.hourly_rate} onChange={e => setForm({ ...form, hourly_rate: e.target.value })} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>}
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Available Hours/mo</label><input type="number" value={form.available_hours_per_month} onChange={e => setForm({ ...form, available_hours_per_month: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
           </div>
           <div className="flex justify-end gap-3 pt-2">

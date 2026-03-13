@@ -4,11 +4,13 @@ import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
 import RAGIndicator from '../components/RAGIndicator';
 import ExportButton from '../components/ExportButton';
+import PrintButton from '../components/PrintButton';
 import HealthScoreGauge from '../components/HealthScoreGauge';
 import { formatCurrency, formatPercentage } from '../utils/formatters';
 import { DollarSign, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Briefcase, BarChart3, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { PROJECT_COLORS } from '../utils/constants';
+import { canViewFinancials } from '../utils/roleHelpers';
 import { useNavigate } from 'react-router';
 
 const DONUT_COLORS = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#db2777', '#ea580c', '#4f46e5', '#64748b'];
@@ -260,19 +262,25 @@ export default function Dashboard() {
   const totalCost = summary?.total_company_cost || 0;
   const totalRevenue = summary?.total_client_revenue || 0;
   const utilizationPct = totalCost > 0 ? ((totalRevenue / totalCost) * 100).toFixed(0) : 0;
+  const showFinancials = canViewFinancials();
 
   return (
     <div>
       <PageHeader title="Dashboard" subtitle="Investment portfolio overview">
+        <PrintButton />
         <ExportButton endpoint="/export/projects" filename="dashboard-projects.csv" />
       </PageHeader>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <KpiCard label="Total Budget" value={formatCurrency(summary?.total_budget)} icon={Briefcase} color="blue" sublabel={`${summary?.project_count || 0} projects across ${summary?.theme_count || 0} clients`} />
-        <KpiCard label="Monthly Cost" value={formatCurrency(totalCost)} icon={TrendingDown} color="amber" sublabel="Total company cost" />
-        <KpiCard label="Monthly Revenue" value={formatCurrency(totalRevenue)} icon={TrendingUp} color="emerald" trend={summary?.margin_percentage} trendLabel={`${utilizationPct}% return`} sublabel="Client billings" />
-        <KpiCard label="Net Margin" value={formatPercentage(summary?.margin_percentage)} icon={BarChart3} color={summary?.margin_percentage >= 0 ? 'violet' : 'amber'} sublabel={formatCurrency(summary?.total_margin) + ' / month'} trend={summary?.margin_percentage} trendLabel={summary?.margin_percentage >= 0 ? 'Profitable' : 'Loss'} />
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${showFinancials ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-4 mb-6`}>
+        <KpiCard label="Total Projects" value={summary?.project_count || 0} icon={Briefcase} color="blue" sublabel={`Across ${summary?.theme_count || 0} clients`} />
+        {showFinancials && (
+          <>
+            <KpiCard label="Monthly Cost" value={formatCurrency(totalCost)} icon={TrendingDown} color="amber" sublabel="Total company cost" />
+            <KpiCard label="Monthly Revenue" value={formatCurrency(totalRevenue)} icon={TrendingUp} color="emerald" trend={summary?.margin_percentage} trendLabel={`${utilizationPct}% return`} sublabel="Client billings" />
+            <KpiCard label="Net Margin" value={formatPercentage(summary?.margin_percentage)} icon={BarChart3} color={summary?.margin_percentage >= 0 ? 'violet' : 'amber'} sublabel={formatCurrency(summary?.total_margin) + ' / month'} trend={summary?.margin_percentage} trendLabel={summary?.margin_percentage >= 0 ? 'Profitable' : 'Loss'} />
+          </>
+        )}
       </div>
 
       {/* Portfolio Health + RAG Summary */}
@@ -313,29 +321,31 @@ export default function Dashboard() {
       </div>
 
       {/* Cost vs Revenue bar + Budget utilization */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6 shadow-sm">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-semibold text-slate-700">Budget Utilization</h3>
-          <span className="text-xs text-slate-500">{formatCurrency(totalCost)} spent of {formatCurrency(summary?.total_budget)} budget</span>
+      {showFinancials && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-sm font-semibold text-slate-700">Budget Utilization</h3>
+            <span className="text-xs text-slate-500">{formatCurrency(totalCost)} spent of {formatCurrency(summary?.total_budget)} budget</span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+            {(() => {
+              const pct = summary?.total_budget > 0 ? Math.min((totalCost * 12 / summary.total_budget) * 100, 100) : 0;
+              return (
+                <div
+                  className={`h-full rounded-full transition-all ${pct > 80 ? 'bg-gradient-to-r from-red-400 to-red-500' : pct > 50 ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-emerald-400 to-emerald-500'}`}
+                  style={{ width: `${pct}%` }}
+                />
+              );
+            })()}
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            {summary?.total_budget > 0 ? `${((totalCost * 12 / summary.total_budget) * 100).toFixed(1)}% annualized spend rate` : ''}
+          </p>
         </div>
-        <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-          {(() => {
-            const pct = summary?.total_budget > 0 ? Math.min((totalCost * 12 / summary.total_budget) * 100, 100) : 0;
-            return (
-              <div
-                className={`h-full rounded-full transition-all ${pct > 80 ? 'bg-gradient-to-r from-red-400 to-red-500' : pct > 50 ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-emerald-400 to-emerald-500'}`}
-                style={{ width: `${pct}%` }}
-              />
-            );
-          })()}
-        </div>
-        <p className="text-xs text-slate-400 mt-1">
-          {summary?.total_budget > 0 ? `${((totalCost * 12 / summary.total_budget) * 100).toFixed(1)}% annualized spend rate` : ''}
-        </p>
-      </div>
+      )}
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      {showFinancials && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Cost Breakdown — vertical bar chart sorted by cost */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -384,10 +394,10 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Revenue vs Cost comparison */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6 shadow-sm">
+      {showFinancials && <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-slate-700">Revenue vs Cost by Client</h3>
           <div className="flex items-center gap-4 text-xs">
@@ -405,10 +415,10 @@ export default function Dashboard() {
             <Bar dataKey="Cost" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
-      </div>
+      </div>}
 
       {/* Project Status + Top/Bottom Performers */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div className={`grid grid-cols-1 ${showFinancials ? 'lg:grid-cols-3' : ''} gap-6 mb-6`}>
         {/* Project Status Summary */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-700 mb-4">Project Status</h3>
@@ -436,46 +446,50 @@ export default function Dashboard() {
         </div>
 
         {/* Top Performers */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-            <ArrowUpRight size={16} className="text-emerald-500" /> Top Margins
-          </h3>
-          <div className="space-y-2.5">
-            {topProjects.map((p, i) => (
-              <div key={p.id} onClick={() => navigate(`/projects/${p.id}`)} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer group">
-                <span className="text-xs font-bold text-slate-400 w-4">{i + 1}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate group-hover:text-primary">{p.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{p.theme_name}</p>
+        {showFinancials && (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <ArrowUpRight size={16} className="text-emerald-500" /> Top Margins
+            </h3>
+            <div className="space-y-2.5">
+              {topProjects.map((p, i) => (
+                <div key={p.id} onClick={() => navigate(`/projects/${p.id}`)} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer group">
+                  <span className="text-xs font-bold text-slate-400 w-4">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate group-hover:text-primary">{p.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{p.theme_name}</p>
+                  </div>
+                  <span className="text-sm font-bold text-emerald-600">{formatPercentage(p.margin_percentage)}</span>
                 </div>
-                <span className="text-sm font-bold text-emerald-600">{formatPercentage(p.margin_percentage)}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Bottom Performers */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-            <ArrowDownRight size={16} className="text-red-500" /> Lowest Margins
-          </h3>
-          <div className="space-y-2.5">
-            {bottomProjects.map((p, i) => (
-              <div key={p.id} onClick={() => navigate(`/projects/${p.id}`)} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer group">
-                <span className="text-xs font-bold text-slate-400 w-4">{i + 1}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate group-hover:text-primary">{p.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{p.theme_name}</p>
+        {showFinancials && (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <ArrowDownRight size={16} className="text-red-500" /> Lowest Margins
+            </h3>
+            <div className="space-y-2.5">
+              {bottomProjects.map((p, i) => (
+                <div key={p.id} onClick={() => navigate(`/projects/${p.id}`)} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer group">
+                  <span className="text-xs font-bold text-slate-400 w-4">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate group-hover:text-primary">{p.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{p.theme_name}</p>
+                  </div>
+                  <span className={`text-sm font-bold ${p.margin_percentage >= 0 ? 'text-amber-600' : 'text-red-600'}`}>{formatPercentage(p.margin_percentage)}</span>
                 </div>
-                <span className={`text-sm font-bold ${p.margin_percentage >= 0 ? 'text-amber-600' : 'text-red-600'}`}>{formatPercentage(p.margin_percentage)}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Clients Roll-up */}
-      {(() => {
+      {showFinancials && (() => {
         const themes = breakdown || [];
         const toggle = (id) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
         const grandTotals = themes.reduce((acc, t) => ({

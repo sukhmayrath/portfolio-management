@@ -18,6 +18,7 @@ import AttachmentSection from '../components/AttachmentSection';
 import { formatCurrency, formatPercentage, formatHours, formatDate } from '../utils/formatters';
 import { PROJECT_STATUSES, TASK_STATUSES, COST_TYPES, HEALTH_STATUSES, RISK_CATEGORIES, RISK_LIKELIHOODS, RISK_IMPACTS, RISK_STATUSES, MILESTONE_STATUSES } from '../utils/constants';
 import { Edit2, Trash2, Plus, Pencil, DollarSign, Users, TrendingUp, Building, AlertTriangle, Flag, MessageSquare, Tag, Blocks } from 'lucide-react';
+import { canViewFinancials } from '../utils/roleHelpers';
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -53,6 +54,7 @@ export default function ProjectDetail() {
   if (!project) return <div className="p-8 text-center text-slate-500">Project not found</div>;
 
   const c = project.computed || {};
+  const showFinancials = canViewFinancials();
 
   const handleEdit = () => {
     setEditForm({
@@ -165,7 +167,7 @@ export default function ProjectDetail() {
     { id: 'tasks', label: `Tasks (${project.tasks?.length || 0})` },
     { id: 'risks', label: `Risks (${project.risks?.length || 0})` },
     { id: 'milestones', label: `Milestones (${project.milestones?.length || 0})` },
-    { id: 'facility', label: `Facility Costs (${project.facility_costs?.length || 0})` },
+    ...(showFinancials ? [{ id: 'facility', label: `Facility Costs (${project.facility_costs?.length || 0})` }] : []),
     { id: 'files', label: `Files` },
     { id: 'activity', label: 'Activity' },
   ];
@@ -205,12 +207,14 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <MetricCard label="Resource Cost" value={formatCurrency(c.resource_cost_monthly)} sublabel="Monthly" icon={Users} color="primary" />
-        <MetricCard label="Facility + Overhead" value={formatCurrency((c.total_facility_monthly || 0) + (c.overhead_cost_monthly || 0))} sublabel="Monthly" icon={Building} color="warning" />
-        <MetricCard label="Client Revenue" value={formatCurrency(c.client_revenue_monthly)} sublabel={`${formatHours(c.total_allocated_hours)} @ ${formatCurrency(project.client_billing_rate_per_hour)}/hr`} icon={DollarSign} color="success" />
-        <MetricCard label="Margin" value={formatPercentage(c.margin_percentage)} sublabel={formatCurrency(c.margin_monthly) + '/mo'} icon={TrendingUp} color={c.margin_monthly >= 0 ? 'success' : 'danger'} />
-      </div>
+      {showFinancials && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <MetricCard label="Resource Cost" value={formatCurrency(c.resource_cost_monthly)} sublabel="Monthly" icon={Users} color="primary" />
+          <MetricCard label="Facility + Overhead" value={formatCurrency((c.total_facility_monthly || 0) + (c.overhead_cost_monthly || 0))} sublabel="Monthly" icon={Building} color="warning" />
+          <MetricCard label="Client Revenue" value={formatCurrency(c.client_revenue_monthly)} sublabel={`${formatHours(c.total_allocated_hours)} @ ${formatCurrency(project.client_billing_rate_per_hour)}/hr`} icon={DollarSign} color="success" />
+          <MetricCard label="Margin" value={formatPercentage(c.margin_percentage)} sublabel={formatCurrency(c.margin_monthly) + '/mo'} icon={TrendingUp} color={c.margin_monthly >= 0 ? 'success' : 'danger'} />
+        </div>
+      )}
 
       <div className="flex gap-1 mb-4 border-b border-slate-200">
         {tabs.map(tab => (
@@ -229,8 +233,8 @@ export default function ProjectDetail() {
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Role</th>
               <th className="px-4 py-3 text-right font-semibold text-slate-600">Allocation</th>
               <th className="px-4 py-3 text-right font-semibold text-slate-600">Hours/mo</th>
-              <th className="px-4 py-3 text-right font-semibold text-slate-600">Rate</th>
-              <th className="px-4 py-3 text-right font-semibold text-slate-600">Cost/mo</th>
+              {showFinancials && <th className="px-4 py-3 text-right font-semibold text-slate-600">Rate</th>}
+              {showFinancials && <th className="px-4 py-3 text-right font-semibold text-slate-600">Cost/mo</th>}
             </tr></thead>
             <tbody className="divide-y divide-slate-100">
               {(project.allocations || []).map(a => (
@@ -239,12 +243,12 @@ export default function ProjectDetail() {
                   <td className="px-4 py-3 text-slate-600">{a.role}</td>
                   <td className="px-4 py-3 text-right">{formatPercentage(a.allocation_percentage)}</td>
                   <td className="px-4 py-3 text-right">{a.allocated_hours_per_month}</td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(a.hourly_rate)}/hr</td>
-                  <td className="px-4 py-3 text-right font-medium">{formatCurrency(a.monthly_cost)}</td>
+                  {showFinancials && <td className="px-4 py-3 text-right">{formatCurrency(a.hourly_rate)}/hr</td>}
+                  {showFinancials && <td className="px-4 py-3 text-right font-medium">{formatCurrency(a.monthly_cost)}</td>}
                 </tr>
               ))}
               {(!project.allocations || project.allocations.length === 0) && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">No resources allocated</td></tr>
+                <tr><td colSpan={showFinancials ? 6 : 4} className="px-4 py-8 text-center text-slate-400">No resources allocated</td></tr>
               )}
             </tbody>
           </table>
@@ -465,11 +469,13 @@ export default function ProjectDetail() {
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label><input type="date" value={editForm.start_date} onChange={e => setEditForm({ ...editForm, start_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">End Date</label><input type="date" value={editForm.end_date} onChange={e => setEditForm({ ...editForm, end_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Client Rate ($/hr)</label><input type="number" value={editForm.client_billing_rate_per_hour} onChange={e => setEditForm({ ...editForm, client_billing_rate_per_hour: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Facility ($/mo)</label><input type="number" value={editForm.fixed_facility_cost_monthly} onChange={e => setEditForm({ ...editForm, fixed_facility_cost_monthly: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Overhead (%)</label><input type="number" value={editForm.overhead_percentage} onChange={e => setEditForm({ ...editForm, overhead_percentage: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
-            </div>
+            {showFinancials && (
+              <div className="grid grid-cols-3 gap-4">
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Client Rate ($/hr)</label><input type="number" value={editForm.client_billing_rate_per_hour} onChange={e => setEditForm({ ...editForm, client_billing_rate_per_hour: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Facility ($/mo)</label><input type="number" value={editForm.fixed_facility_cost_monthly} onChange={e => setEditForm({ ...editForm, fixed_facility_cost_monthly: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Overhead (%)</label><input type="number" value={editForm.overhead_percentage} onChange={e => setEditForm({ ...editForm, overhead_percentage: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Health Status</label>
                 <select value={editForm.health_status} onChange={e => setEditForm({ ...editForm, health_status: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">

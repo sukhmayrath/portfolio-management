@@ -4,6 +4,7 @@ import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import { formatCurrency, formatPercentage } from '../utils/formatters';
 import { Plus, Trash2, Pencil, User, Briefcase, Clock, RotateCcw } from 'lucide-react';
+import { canViewFinancials } from '../utils/roleHelpers';
 
 export default function ResourceAllocation() {
   const { data: allocations, refetch: refetchAllocs } = useApi('/allocations');
@@ -18,6 +19,7 @@ export default function ResourceAllocation() {
   const [editForm, setEditForm] = useState({ allocation_percentage: '', allocated_hours_per_month: '' });
   const [editError, setEditError] = useState('');
 
+  const showFinancials = canViewFinancials();
   const selectedResource = resources?.find(r => r.id === Number(form.resource_id));
   const currentAllocation = selectedResource?.total_allocation_percentage || 0;
   const remaining = 100 - currentAllocation;
@@ -179,10 +181,10 @@ export default function ResourceAllocation() {
               <span className="text-sm font-semibold text-slate-900">{selectedResource.name}</span>
               <span className="text-xs text-slate-500">{selectedResource.role}</span>
             </div>
-            <div className="flex items-center gap-2">
+            {showFinancials && <div className="flex items-center gap-2">
               <Briefcase size={14} className="text-slate-400" />
               <span className="text-sm text-slate-700">Rate: <span className="font-medium">{formatCurrency(selectedResource.hourly_rate)}/hr</span></span>
-            </div>
+            </div>}
             <div className="flex items-center gap-2">
               <Clock size={14} className="text-slate-400" />
               <span className="text-sm text-slate-700">{selectedResource.available_hours_per_month} hrs/mo available</span>
@@ -227,13 +229,13 @@ export default function ResourceAllocation() {
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Project</th>
               <th className="px-4 py-3 text-right font-semibold text-slate-600">Allocation</th>
               <th className="px-4 py-3 text-right font-semibold text-slate-600">Hours/mo</th>
-              <th className="px-4 py-3 text-right font-semibold text-slate-600">Rate</th>
-              <th className="px-4 py-3 text-right font-semibold text-slate-600">Cost/mo</th>
+              {showFinancials && <th className="px-4 py-3 text-right font-semibold text-slate-600">Rate</th>}
+              {showFinancials && <th className="px-4 py-3 text-right font-semibold text-slate-600">Cost/mo</th>}
               <th className="px-4 py-3 text-center font-semibold text-slate-600">Actions</th>
             </tr></thead>
             <tbody className="divide-y divide-slate-100">
               {displayedAllocations.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">No allocations found</td></tr>
+                <tr><td colSpan={showFinancials ? 8 : 6} className="px-4 py-8 text-center text-slate-400">No allocations found</td></tr>
               ) : displayedAllocations.map(a => (
                 <tr key={a.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium text-slate-900">{a.resource_name}</td>
@@ -241,8 +243,8 @@ export default function ResourceAllocation() {
                   <td className="px-4 py-3 text-slate-600">{a.project_name}</td>
                   <td className="px-4 py-3 text-right">{formatPercentage(a.allocation_percentage)}</td>
                   <td className="px-4 py-3 text-right">{a.allocated_hours_per_month}</td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(a.hourly_rate)}/hr</td>
-                  <td className="px-4 py-3 text-right font-medium">{formatCurrency(a.monthly_cost)}</td>
+                  {showFinancials && <td className="px-4 py-3 text-right">{formatCurrency(a.hourly_rate)}/hr</td>}
+                  {showFinancials && <td className="px-4 py-3 text-right font-medium">{formatCurrency(a.monthly_cost)}</td>}
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <button onClick={() => openEdit(a)} className="text-slate-400 hover:text-blue-500" title="Edit allocation"><Pencil size={14} /></button>

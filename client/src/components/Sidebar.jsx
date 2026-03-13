@@ -1,5 +1,10 @@
 import { NavLink, useNavigate } from 'react-router';
-import { LayoutDashboard, Lightbulb, FolderKanban, Users, GitBranch, BarChart3, DollarSign, Calendar, Map, Bell, FileText, ClipboardList, LogOut, Shield, LayoutGrid, Inbox, Zap, Blocks } from 'lucide-react';
+import { LayoutDashboard, Lightbulb, FolderKanban, Users, GitBranch, BarChart3, DollarSign, Calendar, Map, Bell, FileText, ClipboardList, LogOut, Shield, LayoutGrid, Inbox, Zap, Blocks, UserCog } from 'lucide-react';
+
+const ROLE_ACCESS = {
+  Financial: ['Admin', 'PMO', 'Executive'],
+  Admin: ['Admin'],
+};
 
 const navItems = [
   { label: 'Overview', items: [
@@ -21,15 +26,16 @@ const navItems = [
     { to: '/utilization', icon: BarChart3, label: 'Utilization' },
   ]},
   { label: 'Reports', items: [
-    { to: '/costs', icon: DollarSign, label: 'Financial Analysis' },
-    { to: '/budget', icon: FileText, label: 'Budget Tracking' },
-    { to: '/executive-summary', icon: ClipboardList, label: 'Executive Summary' },
+    { to: '/costs', icon: DollarSign, label: 'Financial Analysis', accessGroup: 'Financial' },
+    { to: '/budget', icon: FileText, label: 'Budget Tracking', accessGroup: 'Financial' },
+    { to: '/executive-summary', icon: ClipboardList, label: 'Executive Summary', accessGroup: 'Financial' },
   ]},
   { label: 'System', items: [
     { to: '/templates', icon: Blocks, label: 'Templates' },
     { to: '/automations', icon: Zap, label: 'Automations' },
     { to: '/alerts', icon: Bell, label: 'Alerts' },
     { to: '/audit', icon: Shield, label: 'Audit Log' },
+    { to: '/users', icon: UserCog, label: 'User Management', accessGroup: 'Admin' },
   ]},
 ];
 
@@ -52,27 +58,35 @@ export default function Sidebar({ isOpen, onClose }) {
           <p className="text-xs text-slate-400 mt-1">Investment Tracker</p>
         </div>
         <nav className="flex-1 py-4 overflow-y-auto">
-          {navItems.map(section => (
-            <div key={section.label} className="mb-4">
-              <p className="px-5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">{section.label}</p>
-              {section.items.map(item => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === '/'}
-                  onClick={onClose}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-5 py-2.5 text-sm transition-colors ${
-                      isActive ? 'bg-slate-800 text-white border-r-2 border-primary' : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
-                    }`
-                  }
-                >
-                  <item.icon size={18} />
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          ))}
+          {navItems.map(section => {
+            const userRole = user?.role || 'Viewer';
+            const visibleItems = section.items.filter(item => {
+              if (!item.accessGroup) return true;
+              return (ROLE_ACCESS[item.accessGroup] || []).includes(userRole);
+            });
+            if (visibleItems.length === 0) return null;
+            return (
+              <div key={section.label} className="mb-4">
+                <p className="px-5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">{section.label}</p>
+                {visibleItems.map(item => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/'}
+                    onClick={onClose}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-5 py-2.5 text-sm transition-colors ${
+                        isActive ? 'bg-slate-800 text-white border-r-2 border-primary' : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
+                      }`
+                    }
+                  >
+                    <item.icon size={18} />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
         </nav>
         {user && (
           <div className="p-4 border-t border-slate-700">
